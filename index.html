@@ -1,0 +1,1526 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ninja Pancasila: Petualangan Pegunungan Nusantara</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Poppins:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0f172a;
+            font-family: 'Poppins', sans-serif;
+            touch-action: none;
+        }
+        #game-container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #0f172a;
+        }
+        canvas {
+            display: block;
+            box-shadow: 0 0 30px rgba(0,0,0,0.8);
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+        }
+        .glow-gold {
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.6);
+        }
+        .control-btn {
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.4);
+            backdrop-filter: blur(4px);
+            transition: all 0.1s ease;
+        }
+        .control-btn:active {
+            background: rgba(245, 158, 11, 0.6);
+            transform: scale(0.92);
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-white select-none">
+
+<div id="game-container">
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- Top HUD Overlay -->
+    <div id="ui-layer" class="absolute top-0 left-0 w-full h-full pointer-events-none p-4 flex flex-col justify-between z-10">
+        <div class="flex justify-between items-center w-full max-w-5xl mx-auto pointer-events-auto">
+            <!-- Health & Distance -->
+            <div class="flex items-center gap-4 glass-panel px-4 py-2 rounded-2xl">
+                <div class="flex items-center gap-1" id="hearts-container">
+                    <span class="text-2xl">❤️</span>
+                    <span class="text-2xl">❤️</span>
+                    <span class="text-2xl">❤️</span>
+                </div>
+                <div class="h-6 w-0.5 bg-slate-700"></div>
+                <div class="text-sm md:text-base font-bold text-amber-400">
+                    <span id="distance-display">0</span>m
+                </div>
+            </div>
+
+            <!-- Pancasila Collection HUD -->
+            <div class="glass-panel px-4 py-2 rounded-2xl flex items-center gap-2 md:gap-3">
+                <span class="text-xs font-bold text-slate-300 hidden sm:inline">PANCASILA:</span>
+                <div class="flex gap-1 md:gap-2" id="pancasila-slots">
+                    <div id="slot-0" class="w-8 h-8 rounded-lg border border-slate-600 bg-slate-800/80 flex items-center justify-center text-lg grayscale opacity-40 transition-all">⭐</div>
+                    <div id="slot-1" class="w-8 h-8 rounded-lg border border-slate-600 bg-slate-800/80 flex items-center justify-center text-lg grayscale opacity-40 transition-all">⛓️</div>
+                    <div id="slot-2" class="w-8 h-8 rounded-lg border border-slate-600 bg-slate-800/80 flex items-center justify-center text-lg grayscale opacity-40 transition-all">🌳</div>
+                    <div id="slot-3" class="w-8 h-8 rounded-lg border border-slate-600 bg-slate-800/80 flex items-center justify-center text-lg grayscale opacity-40 transition-all">🐃</div>
+                    <div id="slot-4" class="w-8 h-8 rounded-lg border border-slate-600 bg-slate-800/80 flex items-center justify-center text-lg grayscale opacity-40 transition-all">🌾</div>
+                </div>
+            </div>
+
+            <!-- Audio Toggle Button -->
+            <button id="sound-btn" class="glass-panel p-2 rounded-2xl pointer-events-auto hover:bg-slate-700/50 transition">
+                <span id="sound-icon" class="text-xl">🔊</span>
+            </button>
+        </div>
+
+        <!-- Banner Toast for Pancasila Pickups -->
+        <div id="toast-banner" class="self-center glass-panel px-6 py-3 rounded-full text-center border-2 border-amber-400 transform -translate-y-20 opacity-0 transition-all duration-500 max-w-md pointer-events-none z-20">
+            <p id="toast-title" class="font-bold text-amber-300 text-sm md:text-base"></p>
+            <p id="toast-desc" class="text-xs text-slate-200"></p>
+        </div>
+
+        <!-- Mobile On-Screen Controls -->
+        <div id="mobile-controls" class="flex justify-between items-end w-full max-w-4xl mx-auto pb-4 px-2 pointer-events-auto">
+            <!-- Left Side: Duck / Slide -->
+            <div class="flex gap-3">
+                <button id="btn-duck" class="control-btn w-16 h-16 rounded-full flex items-center justify-center text-2xl active:scale-95 text-white">
+                    ⬇️
+                </button>
+            </div>
+            <!-- Right Side: Jump -->
+            <div class="flex gap-3">
+                <button id="btn-jump" class="control-btn w-20 h-20 rounded-full flex items-center justify-center text-3xl active:scale-95 text-white bg-amber-500/20 border-amber-400">
+                    ⬆️
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Start / Modals Overlay -->
+    <div id="modal-overlay" class="absolute inset-0 bg-slate-950/85 backdrop-blur-md flex items-center justify-center z-30 p-4">
+        <!-- Start Screen -->
+        <div id="start-modal" class="glass-panel p-6 md:p-8 rounded-3xl max-w-lg w-full text-center border-amber-500/30">
+            <div class="w-16 h-16 mx-auto mb-3 bg-amber-500/20 border border-amber-400/50 rounded-2xl flex items-center justify-center text-3xl">
+                🥷
+            </div>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-amber-400 via-orange-300 to-amber-500 mb-2">
+                NINJA PANCASILA
+            </h1>
+            <p class="text-amber-200/80 text-xs md:text-sm mb-6">
+                Petualangan di Pegunungan Hutan Nusantara
+            </p>
+
+            <div class="bg-slate-900/60 p-4 rounded-2xl text-left text-xs md:text-sm text-slate-300 space-y-2 mb-6 border border-slate-800">
+                <p class="font-semibold text-amber-300 mb-1">🎯 Misi Utama:</p>
+                <p>Jelajahi hutan pegunungan, hindari rintangan bebatuan, kelelawar, dan burung elang. Cari & kumpulkan 5 Lambang Pancasila!</p>
+                
+                <p class="font-semibold text-emerald-400 pt-1">🇮🇩 Bonus Spesial:</p>
+                <p class="text-xs text-slate-300">Tabrak <b>Bendera Merah Putih</b> untuk Perisai Kebangsaan & <b>Garuda Pancasila</b> untuk Jurus Pembersih Rintangan!</p>
+
+                <div class="pt-2 border-t border-slate-800 font-semibold text-amber-300">🎮 Kontrol Game:</div>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div><span class="bg-slate-800 px-2 py-0.5 rounded border border-slate-700 text-amber-400">Spasi / ⬆️</span> : Lompat</div>
+                    <div><span class="bg-slate-800 px-2 py-0.5 rounded border border-slate-700 text-amber-400">Panah ⬇️</span> : Merunduk</div>
+                </div>
+            </div>
+
+            <button id="start-btn" class="w-full py-4 rounded-2xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 font-bold text-slate-950 text-base md:text-lg shadow-lg hover:shadow-amber-500/30 transition transform active:scale-95">
+                Mulai Petualangan 🚀
+            </button>
+        </div>
+
+        <!-- Game Over Modal -->
+        <div id="gameover-modal" class="glass-panel p-6 md:p-8 rounded-3xl max-w-lg w-full text-center border-red-500/30 hidden">
+            <div class="w-16 h-16 mx-auto mb-3 bg-red-500/20 border border-red-400/50 rounded-2xl flex items-center justify-center text-3xl">
+                💀
+            </div>
+            <h2 class="text-2xl md:text-3xl font-extrabold text-red-400 mb-2">Gugur Dalam Tugas</h2>
+            <p class="text-slate-300 text-xs md:text-sm mb-4">Perjalanan ninjamu terhenti di tengah pegunungan.</p>
+            
+            <div class="bg-slate-900/60 p-4 rounded-2xl mb-6 border border-slate-800 flex justify-around text-center">
+                <div>
+                    <div class="text-xs text-slate-400">Jarak Tempuh</div>
+                    <div id="go-distance" class="text-xl font-bold text-amber-400">0m</div>
+                </div>
+                <div class="w-0.5 bg-slate-800"></div>
+                <div>
+                    <div class="text-xs text-slate-400">Pancasila</div>
+                    <div id="go-pancasila" class="text-xl font-bold text-amber-400">0/5</div>
+                </div>
+            </div>
+
+            <button id="restart-btn" class="w-full py-4 rounded-2xl bg-gradient-to-r from-red-500 to-orange-600 hover:from-red-400 hover:to-orange-500 font-bold text-white text-base md:text-lg shadow-lg hover:shadow-red-500/30 transition transform active:scale-95">
+                Coba Lagi 🔄
+            </button>
+        </div>
+
+        <!-- Victory Modal -->
+        <div id="victory-modal" class="glass-panel p-6 md:p-8 rounded-3xl max-w-lg w-full text-center border-emerald-500/30 hidden">
+            <div class="w-16 h-16 mx-auto mb-3 bg-emerald-500/20 border border-emerald-400/50 rounded-2xl flex items-center justify-center text-3xl">
+                🏆
+            </div>
+            <h2 class="text-2xl md:text-3xl font-extrabold text-emerald-400 mb-2">MERDEKA!</h2>
+            <p class="text-emerald-200 text-xs md:text-sm mb-4">Luar biasa! Kamu berhasil mengumpulkan kelima lambang Pancasila dan menjaga keutuhan Bangsa!</p>
+            
+            <div class="flex justify-center gap-2 mb-6 text-2xl p-3 bg-slate-900/60 rounded-2xl border border-slate-800">
+                ⭐ ⛓️ 🌳 🐃 🌾
+            </div>
+
+            <button id="win-restart-btn" class="w-full py-4 rounded-2xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 font-bold text-slate-950 text-base md:text-lg shadow-lg hover:shadow-emerald-500/30 transition transform active:scale-95">
+                Main Lagi 🌟
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    // UI Element References
+    const heartsContainer = document.getElementById('hearts-container');
+    const distanceDisplay = document.getElementById('distance-display');
+    const toastBanner = document.getElementById('toast-banner');
+    const toastTitle = document.getElementById('toast-title');
+    const toastDesc = document.getElementById('toast-desc');
+    const soundBtn = document.getElementById('sound-btn');
+    const soundIcon = document.getElementById('sound-icon');
+
+    const modalOverlay = document.getElementById('modal-overlay');
+    const startModal = document.getElementById('start-modal');
+    const gameoverModal = document.getElementById('gameover-modal');
+    const victoryModal = document.getElementById('victory-modal');
+    const goDistance = document.getElementById('go-distance');
+    const goPancasila = document.getElementById('go-pancasila');
+
+    // Virtual Game Constants (Virtual Resolution)
+    const V_WIDTH = 800;
+    const V_HEIGHT = 450;
+    const GROUND_Y = 380;
+
+    let baseSpeed = 5;
+    let gameSpeed = baseSpeed;
+    let distance = 0;
+    let pancasilaCollected = 0;
+    let currentPancasilaIndex = 0;
+    let gameState = 'START'; // 'START', 'PLAYING', 'GAMEOVER', 'WIN'
+    let frameCount = 0;
+    let animationFrameId;
+
+    // Pancasila Symbol Master Data
+    const pancasilaData = [
+        { title: 'Sila 1: Ketuhanan Yang Maha Esa', emoji: '⭐', color: '#f59e0b', desc: 'Simbol Bintang Emas' },
+        { title: 'Sila 2: Kemanusiaan yang Adil dan Beradab', emoji: '⛓️', color: '#ef4444', desc: 'Simbol Rantai Emas' },
+        { title: 'Sila 3: Persatuan Indonesia', emoji: '🌳', color: '#10b981', desc: 'Simbol Pohon Beringin' },
+        { title: 'Sila 4: Kerakyatan yang Dipimpin oleh Hikmat...', emoji: '🐃', color: '#64748b', desc: 'Simbol Kepala Banteng' },
+        { title: 'Sila 5: Keadilan Sosial bagi Seluruh Rakyat...', emoji: '🌾', color: '#eab308', desc: 'Simbol Padi dan Kapas' }
+    ];
+
+    // Canvas Responsive Resizing
+    function resizeCanvas() {
+        const container = document.getElementById('game-container');
+        const containerW = container.clientWidth;
+        const containerH = container.clientHeight;
+
+        const gameRatio = V_WIDTH / V_HEIGHT;
+        let w = containerW;
+        let h = containerW / gameRatio;
+
+        if (h > containerH) {
+            h = containerH;
+            w = containerH * gameRatio;
+        }
+
+        canvas.width = w;
+        canvas.height = h;
+    }
+
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    class SoundEngine {
+        constructor() {
+            this.ctx = null;
+            this.muted = false;
+        }
+
+        init() {
+            if (!this.ctx) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                if (AudioContext) {
+                    this.ctx = new AudioContext();
+                }
+            }
+            if (this.ctx && this.ctx.state === 'suspended') {
+                this.ctx.resume();
+            }
+        }
+
+        playTone(freq, type, duration, startVol = 0.1) {
+            if (this.muted || !this.ctx) return;
+            try {
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = type;
+                osc.frequency.setValueAtTime(freq, this.ctx.currentTime);
+                gain.gain.setValueAtTime(startVol, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.0001, this.ctx.currentTime + duration);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + duration);
+            } catch (e) {}
+        }
+
+        jump() {
+            if (this.muted || !this.ctx) return;
+            try {
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(400, now + 0.15);
+                gain.gain.setValueAtTime(0.12, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.15);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            } catch (e) {}
+        }
+
+        hit() {
+            if (this.muted || !this.ctx) return;
+            try {
+                const now = this.ctx.currentTime;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(120, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.2);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.001, now + 0.2);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start(now);
+                osc.stop(now + 0.2);
+            } catch (e) {}
+        }
+
+        powerup() {
+            if (this.muted || !this.ctx) return;
+            try {
+                const now = this.ctx.currentTime;
+                [400, 600, 800, 1200].forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.06);
+                    gain.gain.setValueAtTime(0.15, now + idx * 0.06);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.06 + 0.12);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.06);
+                    osc.stop(now + idx * 0.06 + 0.12);
+                });
+            } catch (e) {}
+        }
+
+        collect() {
+            if (this.muted || !this.ctx) return;
+            try {
+                const now = this.ctx.currentTime;
+                [523.25, 659.25, 783.99, 1046.50].forEach((freq, idx) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, now + idx * 0.08);
+                    gain.gain.setValueAtTime(0.12, now + idx * 0.08);
+                    gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.08 + 0.15);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(now + idx * 0.08);
+                    osc.stop(now + idx * 0.08 + 0.15);
+                });
+            } catch (e) {}
+        }
+
+        win() {
+            if (this.muted || !this.ctx) return;
+            try {
+                const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+                notes.forEach((freq, i) => {
+                    setTimeout(() => this.playTone(freq, 'sine', 0.3, 0.2), i * 150);
+                });
+            } catch (e) {}
+        }
+    }
+
+    const audio = new SoundEngine();
+
+    class Background {
+        constructor() {
+            this.mountainsFar = [];
+            this.mountainsNear = [];
+            this.trees = [];
+            this.clouds = [];
+
+            for (let i = 0; i < 4; i++) {
+                this.mountainsFar.push({ x: i * 300, w: 400, h: 220 });
+            }
+            for (let i = 0; i < 4; i++) {
+                this.mountainsNear.push({ x: i * 250, w: 320, h: 150 });
+            }
+            for (let i = 0; i < 7; i++) {
+                this.trees.push({ x: i * 160, scale: 0.6 + Math.random() * 0.5 });
+            }
+            for (let i = 0; i < 5; i++) {
+                this.clouds.push({
+                    x: Math.random() * V_WIDTH,
+                    y: 30 + Math.random() * 80,
+                    speed: 0.2 + Math.random() * 0.3,
+                    size: 25 + Math.random() * 20
+                });
+            }
+        }
+
+        update() {
+            this.mountainsFar.forEach(m => {
+                m.x -= gameSpeed * 0.15;
+                if (m.x + m.w < 0) m.x += 1200;
+            });
+            this.mountainsNear.forEach(m => {
+                m.x -= gameSpeed * 0.35;
+                if (m.x + m.w < 0) m.x += 1000;
+            });
+            this.trees.forEach(t => {
+                t.x -= gameSpeed * 0.8;
+                if (t.x + 80 * t.scale < 0) {
+                    t.x += 1120;
+                    t.scale = 0.6 + Math.random() * 0.5;
+                }
+            });
+            this.clouds.forEach(c => {
+                c.x -= c.speed;
+                if (c.x + 100 < 0) c.x = V_WIDTH + 50;
+            });
+        }
+
+        draw(ctx, width, height) {
+            const scaleX = width / V_WIDTH;
+            const scaleY = height / V_HEIGHT;
+
+            // Sky Gradient
+            const skyGrad = ctx.createLinearGradient(0, 0, 0, height);
+            skyGrad.addColorStop(0, '#0f172a');
+            skyGrad.addColorStop(0.4, '#1e1b4b');
+            skyGrad.addColorStop(0.8, '#312e81');
+            skyGrad.addColorStop(1, '#065f46');
+            ctx.fillStyle = skyGrad;
+            ctx.fillRect(0, 0, width, height);
+
+            // Sun / Moon Glow
+            ctx.fillStyle = 'rgba(251, 191, 36, 0.15)';
+            ctx.beginPath();
+            ctx.arc(V_WIDTH * 0.85 * scaleX, 90 * scaleY, 60 * scaleY, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Clouds
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
+            this.clouds.forEach(c => {
+                const cx = c.x * scaleX;
+                const cy = c.y * scaleY;
+                const r = c.size * scaleY;
+                ctx.beginPath();
+                ctx.arc(cx, cy, r, 0, Math.PI * 2);
+                ctx.arc(cx + r * 0.7, cy - r * 0.3, r * 0.8, 0, Math.PI * 2);
+                ctx.arc(cx + r * 1.4, cy, r * 0.7, 0, Math.PI * 2);
+                ctx.fill();
+            });
+
+            // Far Silhouetted Mountains
+            ctx.fillStyle = '#1e1b4b';
+            this.mountainsFar.forEach(m => {
+                ctx.beginPath();
+                ctx.moveTo(m.x * scaleX, GROUND_Y * scaleY);
+                ctx.lineTo((m.x + m.w / 2) * scaleX, (GROUND_Y - m.h) * scaleY);
+                ctx.lineTo((m.x + m.w) * scaleX, GROUND_Y * scaleY);
+                ctx.fill();
+            });
+
+            // Near Silhouetted Mountains
+            ctx.fillStyle = '#064e3b';
+            this.mountainsNear.forEach(m => {
+                ctx.beginPath();
+                ctx.moveTo(m.x * scaleX, GROUND_Y * scaleY);
+                ctx.lineTo((m.x + m.w / 2) * scaleX, (GROUND_Y - m.h) * scaleY);
+                ctx.lineTo((m.x + m.w) * scaleX, GROUND_Y * scaleY);
+                ctx.fill();
+            });
+
+            // Trees
+            this.trees.forEach(t => {
+                const tw = 50 * t.scale * scaleX;
+                const th = 120 * t.scale * scaleY;
+                const tx = t.x * scaleX;
+                const ty = GROUND_Y * scaleY;
+
+                // Trunk
+                ctx.fillStyle = '#451a03';
+                ctx.fillRect(tx + tw * 0.4, ty - th * 0.25, tw * 0.2, th * 0.25);
+
+                // Leaves
+                ctx.fillStyle = '#047857';
+                ctx.beginPath();
+                ctx.moveTo(tx, ty - th * 0.2);
+                ctx.lineTo(tx + tw / 2, ty - th);
+                ctx.lineTo(tx + tw, ty - th * 0.2);
+                ctx.fill();
+
+                ctx.fillStyle = '#10b981';
+                ctx.beginPath();
+                ctx.moveTo(tx + tw * 0.1, ty - th * 0.45);
+                ctx.lineTo(tx + tw / 2, ty - th * 0.95);
+                ctx.lineTo(tx + tw * 0.9, ty - th * 0.45);
+                ctx.fill();
+            });
+
+            // Ground Earth
+            const groundY = GROUND_Y * scaleY;
+            ctx.fillStyle = '#1f2937';
+            ctx.fillRect(0, groundY, width, height - groundY);
+
+            // Grass Top layer
+            ctx.fillStyle = '#15803d';
+            ctx.fillRect(0, groundY, width, 12 * scaleY);
+
+            // Grass Highlight line
+            ctx.fillStyle = '#22c55e';
+            ctx.fillRect(0, groundY, width, 4 * scaleY);
+        }
+    }
+
+    class Ninja {
+        constructor() {
+            this.w = 50;
+            this.h = 72;
+            this.x = 100;
+            this.y = GROUND_Y - this.h;
+            this.vy = 0;
+            this.gravity = 0.8;
+            this.jumpForce = -15;
+            this.isJumping = false;
+            this.isDucking = false;
+            this.lives = 3;
+            this.invulnerableTimer = 0;
+            this.shieldTimer = 0; // Timer Perisai Merah Putih
+            this.animFrame = 0;
+        }
+
+        jump() {
+            if (!this.isJumping) {
+                this.vy = this.jumpForce;
+                this.isJumping = true;
+                this.isDucking = false;
+                audio.jump();
+            }
+        }
+
+        duck(isDown) {
+            if (this.isJumping) return;
+            this.isDucking = isDown;
+        }
+
+        update() {
+            this.y += this.vy;
+
+            if (this.y < GROUND_Y - (this.isDucking ? this.h * 0.5 : this.h)) {
+                this.vy += this.gravity;
+            } else {
+                this.vy = 0;
+                this.isJumping = false;
+                this.y = GROUND_Y - (this.isDucking ? this.h * 0.5 : this.h);
+            }
+
+            if (this.invulnerableTimer > 0) {
+                this.invulnerableTimer--;
+            }
+            if (this.shieldTimer > 0) {
+                this.shieldTimer--;
+            }
+
+            this.animFrame += 0.2;
+        }
+
+        draw(ctx, width, height) {
+            const scaleX = width / V_WIDTH;
+            const scaleY = height / V_HEIGHT;
+
+            // Flash effect when hit
+            if (this.invulnerableTimer > 0 && Math.floor(Date.now() / 100) % 2 === 0) {
+                return;
+            }
+
+            ctx.save();
+            
+            const px = (this.x + this.w / 2) * scaleX;
+            const groundPosY = GROUND_Y * scaleY;
+            const targetH = (this.isDucking ? this.h * 0.55 : this.h) * scaleY;
+            const targetW = (this.isDucking ? this.w * 1.25 : this.w) * scaleX;
+            const py = (this.y + (this.isDucking ? this.h * 0.45 : this.h)) * scaleY;
+
+            // Draw Red-White Energy Shield if Shield active
+            if (this.shieldTimer > 0) {
+                ctx.save();
+                ctx.translate(px, py - targetH * 0.5);
+                const shieldR = Math.max(targetW, targetH) * 0.85;
+                const shieldPulse = Math.sin(this.animFrame * 3) * 4 * scaleY;
+
+                // Red Outer Glow
+                ctx.strokeStyle = '#ef4444';
+                ctx.lineWidth = 4 * scaleX;
+                ctx.beginPath();
+                ctx.arc(0, 0, shieldR + shieldPulse, Math.PI, Math.PI * 2);
+                ctx.stroke();
+
+                // White Inner Glow
+                ctx.strokeStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(0, 0, shieldR + shieldPulse, 0, Math.PI);
+                ctx.stroke();
+
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.15)';
+                ctx.beginPath();
+                ctx.arc(0, 0, shieldR + shieldPulse, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Shadow under character
+            const shadowWidth = targetW * (this.isJumping ? 0.6 : 1.0);
+            const shadowAlpha = Math.max(0.1, 0.4 - (groundPosY - py) * 0.003);
+            ctx.fillStyle = `rgba(15, 23, 42, ${shadowAlpha})`;
+            ctx.beginPath();
+            ctx.ellipse(px, groundPosY - 2 * scaleY, shadowWidth * 0.6, 6 * scaleY, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.translate(px, py);
+
+            let bounceY = 0;
+            let runLegAngle = 0;
+            if (!this.isJumping && !this.isDucking) {
+                bounceY = Math.sin(this.animFrame * 2.5) * 3 * scaleY;
+                runLegAngle = Math.sin(this.animFrame * 2.5) * 0.4;
+            } else if (this.isJumping) {
+                bounceY = -4 * scaleY;
+            }
+            ctx.translate(0, bounceY);
+
+            // Katana on Back
+            ctx.save();
+            ctx.strokeStyle = '#94a3b8';
+            ctx.lineWidth = 3 * scaleX;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(-targetW * 0.2, -targetH * 0.6);
+            ctx.lineTo(-targetW * 0.65, -targetH * 0.85);
+            ctx.stroke();
+            ctx.strokeStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.moveTo(-targetW * 0.65, -targetH * 0.85);
+            ctx.lineTo(-targetW * 0.8, -targetH * 0.95);
+            ctx.stroke();
+            ctx.fillStyle = '#fbbf24';
+            ctx.fillRect(-targetW * 0.68, -targetH * 0.88, 5 * scaleX, 5 * scaleY);
+            ctx.restore();
+
+            // Waving Red-White Ribbon Tails
+            const wave1 = Math.sin(this.animFrame * 3) * 8 * scaleY;
+            const wave2 = Math.cos(this.animFrame * 3) * 8 * scaleY;
+            
+            // Red Ribbon
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.moveTo(-targetW * 0.3, -targetH * 0.72);
+            ctx.quadraticCurveTo(-targetW * 0.7, -targetH * 0.75 + wave1, -targetW * 1.1, -targetH * 0.6 + wave1);
+            ctx.lineTo(-targetW * 1.0, -targetH * 0.5 + wave1);
+            ctx.quadraticCurveTo(-targetW * 0.6, -targetH * 0.65 + wave1, -targetW * 0.3, -targetH * 0.65);
+            ctx.fill();
+
+            // White Ribbon
+            ctx.fillStyle = '#f8fafc';
+            ctx.beginPath();
+            ctx.moveTo(-targetW * 0.3, -targetH * 0.65);
+            ctx.quadraticCurveTo(-targetW * 0.75, -targetH * 0.65 + wave2, -targetW * 1.05, -targetH * 0.45 + wave2);
+            ctx.lineTo(-targetW * 0.95, -targetH * 0.38 + wave2);
+            ctx.quadraticCurveTo(-targetW * 0.65, -targetH * 0.55 + wave2, -targetW * 0.3, -targetH * 0.58);
+            ctx.fill();
+
+            if (this.isDucking) {
+                // CROUCHING / SQUISHY CHIBI NINJA
+                ctx.fillStyle = '#1e293b';
+                ctx.beginPath();
+                ctx.ellipse(0, -targetH * 0.45, targetW * 0.5, targetH * 0.45, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#ef4444';
+                ctx.fillRect(-targetW * 0.4, -targetH * 0.3, targetW * 0.8, 4 * scaleY);
+
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(0, -targetH * 0.5, targetW * 0.48, Math.PI * 1.15, Math.PI * 1.85);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(-targetW * 0.42, -targetH * 0.62, targetW * 0.84, 3 * scaleY);
+
+                ctx.fillStyle = '#fed7aa';
+                ctx.beginPath();
+                ctx.ellipse(targetW * 0.1, -targetH * 0.45, targetW * 0.28, targetH * 0.18, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.arc(targetW * 0.02, -targetH * 0.46, 3.5 * scaleX, 0, Math.PI * 2);
+                ctx.arc(targetW * 0.22, -targetH * 0.46, 3.5 * scaleX, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.beginPath();
+                ctx.arc(targetW * 0.04, -targetH * 0.48, 1.5 * scaleX, 0, Math.PI * 2);
+                ctx.arc(targetW * 0.24, -targetH * 0.48, 1.5 * scaleX, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = 'rgba(244, 63, 94, 0.45)';
+                ctx.beginPath();
+                ctx.ellipse(-targetW * 0.08, -targetH * 0.38, 4 * scaleX, 2.5 * scaleY, 0, 0, Math.PI * 2);
+                ctx.ellipse(targetW * 0.28, -targetH * 0.38, 4 * scaleX, 2.5 * scaleY, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+            } else {
+                // STANDING / RUNNING / JUMPING CHIBI NINJA
+                ctx.fillStyle = '#0f172a';
+                const legOffset1 = Math.sin(runLegAngle) * 8 * scaleX;
+                const legOffset2 = -Math.sin(runLegAngle) * 8 * scaleX;
+
+                ctx.beginPath();
+                ctx.ellipse(-targetW * 0.2 + legOffset1, -4 * scaleY, 6 * scaleX, 4 * scaleY, 0, 0, Math.PI * 2);
+                ctx.ellipse(targetW * 0.2 + legOffset2, -4 * scaleY, 6 * scaleX, 4 * scaleY, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#1e293b';
+                ctx.beginPath();
+                ctx.roundRect(-targetW * 0.32, -targetH * 0.5, targetW * 0.64, targetH * 0.45, [8 * scaleX]);
+                ctx.fill();
+
+                ctx.fillStyle = '#ef4444';
+                ctx.fillRect(-targetW * 0.33, -targetH * 0.28, targetW * 0.66, 6 * scaleY);
+                ctx.fillStyle = '#fbbf24';
+                ctx.beginPath();
+                ctx.arc(targetW * 0.05, -targetH * 0.25, 3.5 * scaleX, 0, Math.PI * 2);
+                ctx.fill();
+
+                const headY = -targetH * 0.65;
+                const headRadius = targetW * 0.46;
+                ctx.fillStyle = '#0f172a';
+                ctx.beginPath();
+                ctx.arc(0, headY, headRadius, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#fed7aa';
+                ctx.beginPath();
+                ctx.ellipse(targetW * 0.08, headY + 2 * scaleY, headRadius * 0.65, headRadius * 0.42, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (this.isJumping) {
+                    ctx.strokeStyle = '#0f172a';
+                    ctx.lineWidth = 3 * scaleX;
+                    ctx.lineCap = 'round';
+
+                    // Happy eyes "^ ^"
+                    ctx.beginPath();
+                    ctx.moveTo(-targetW * 0.1, headY + 1 * scaleY);
+                    ctx.lineTo(-targetW * 0.02, headY - 4 * scaleY);
+                    ctx.lineTo(targetW * 0.06, headY + 1 * scaleY);
+                    ctx.stroke();
+
+                    ctx.beginPath();
+                    ctx.moveTo(targetW * 0.14, headY + 1 * scaleY);
+                    ctx.lineTo(targetW * 0.22, headY - 4 * scaleY);
+                    ctx.lineTo(targetW * 0.3, headY + 1 * scaleY);
+                    ctx.stroke();
+                } else {
+                    const eyeY = headY - 1 * scaleY;
+                    const eyeLeftX = -targetW * 0.04;
+                    const eyeRightX = targetW * 0.22;
+                    const eyeR = 5.5 * scaleX;
+
+                    ctx.fillStyle = '#020617';
+                    ctx.beginPath();
+                    ctx.arc(eyeLeftX, eyeY, eyeR, 0, Math.PI * 2);
+                    ctx.arc(eyeRightX, eyeY, eyeR, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    ctx.fillStyle = '#ffffff';
+                    ctx.beginPath();
+                    ctx.arc(eyeLeftX + 2 * scaleX, eyeY - 2 * scaleY, eyeR * 0.45, 0, Math.PI * 2);
+                    ctx.arc(eyeRightX + 2 * scaleX, eyeY - 2 * scaleY, eyeR * 0.45, 0, Math.PI * 2);
+                    ctx.arc(eyeLeftX - 2 * scaleX, eyeY + 2 * scaleY, eyeR * 0.2, 0, Math.PI * 2);
+                    ctx.arc(eyeRightX - 2 * scaleX, eyeY + 2 * scaleY, eyeR * 0.2, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+
+                ctx.fillStyle = 'rgba(244, 63, 94, 0.45)';
+                ctx.beginPath();
+                ctx.ellipse(-targetW * 0.18, headY + 7 * scaleY, 4.5 * scaleX, 3 * scaleY, 0, 0, Math.PI * 2);
+                ctx.ellipse(targetW * 0.32, headY + 7 * scaleY, 4.5 * scaleX, 3 * scaleY, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                const bandY = headY - headRadius * 0.45;
+                ctx.fillStyle = '#ef4444';
+                ctx.beginPath();
+                ctx.arc(0, headY, headRadius + 0.5, Math.PI * 1.15, Math.PI * 1.85);
+                ctx.fill();
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(-headRadius * 0.95, bandY, headRadius * 1.9, 4 * scaleY);
+
+                ctx.fillStyle = '#fbbf24';
+                ctx.beginPath();
+                ctx.arc(targetW * 0.08, bandY - 2 * scaleY, 3 * scaleX, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#0f172a';
+                if (this.isJumping) {
+                    ctx.beginPath();
+                    ctx.arc(-targetW * 0.35, -targetH * 0.65, 5 * scaleX, 0, Math.PI * 2);
+                    ctx.arc(targetW * 0.42, -targetH * 0.65, 5 * scaleX, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    const armSwing = Math.sin(this.animFrame * 2.5) * 6 * scaleX;
+                    ctx.beginPath();
+                    ctx.arc(-targetW * 0.32 + armSwing, -targetH * 0.38, 5 * scaleX, 0, Math.PI * 2);
+                    ctx.arc(targetW * 0.38 - armSwing, -targetH * 0.38, 5 * scaleX, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            ctx.restore();
+        }
+
+        hit() {
+            if (this.shieldTimer > 0) {
+                // Shield absorbs hit!
+                return;
+            }
+            if (this.invulnerableTimer <= 0) {
+                this.lives--;
+                this.invulnerableTimer = 60;
+                audio.hit();
+                updateHeartsHUD(this.lives);
+                if (this.lives <= 0) {
+                    triggerGameOver();
+                }
+            }
+        }
+    }
+
+    class Obstacle {
+        constructor(type) {
+            this.type = type; // 'rock', 'bat', 'bird'
+            this.x = V_WIDTH + 50;
+            this.passed = false;
+            this.anim = 0;
+
+            if (type === 'rock') {
+                this.w = 40;
+                this.h = 45;
+                this.y = GROUND_Y - this.h;
+                this.emoji = '🪨';
+            } else if (type === 'bat') {
+                this.w = 45;
+                this.h = 35;
+                this.y = GROUND_Y - 70;
+                this.emoji = '🦇';
+            } else { // bird
+                this.w = 50;
+                this.h = 40;
+                this.y = GROUND_Y - 120;
+                this.initialY = this.y;
+                this.emoji = '🦅';
+            }
+        }
+
+        update() {
+            this.x -= gameSpeed * (this.type === 'bat' ? 1.2 : 1.0);
+            this.anim += 0.1;
+
+            if (this.type === 'bird') {
+                this.y = this.initialY + Math.sin(this.anim * 2) * 20;
+            }
+        }
+
+        draw(ctx, width, height) {
+            const scaleX = width / V_WIDTH;
+            const scaleY = height / V_HEIGHT;
+
+            ctx.font = `${this.h * scaleY}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(
+                this.emoji,
+                (this.x + this.w / 2) * scaleX,
+                (this.y + this.h) * scaleY
+            );
+        }
+    }
+
+    class PancasilaItem {
+        constructor(dataIndex) {
+            this.dataIndex = dataIndex;
+            this.data = pancasilaData[dataIndex];
+            this.x = V_WIDTH + 60;
+            this.y = GROUND_Y - 90 - Math.random() * 40;
+            this.w = 45;
+            this.h = 45;
+            this.collected = false;
+            this.pulse = 0;
+        }
+
+        update() {
+            this.x -= gameSpeed;
+            this.pulse += 0.08;
+        }
+
+        draw(ctx, width, height) {
+            if (this.collected) return;
+
+            const scaleX = width / V_WIDTH;
+            const scaleY = height / V_HEIGHT;
+            const cx = (this.x + this.w / 2) * scaleX;
+            const cy = (this.y + this.h / 2) * scaleY;
+
+            const glowSize = (30 + Math.sin(this.pulse) * 5) * scaleY;
+            ctx.beginPath();
+            ctx.arc(cx, cy, glowSize, 0, Math.PI * 2);
+            ctx.fillStyle = this.data.color + '66';
+            ctx.fill();
+
+            ctx.fillStyle = '#fbbf24';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 22 * scaleY, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.font = `${24 * scaleY}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(this.data.emoji, cx, cy);
+        }
+    }
+
+    // Special Items: Bendera Merah Putih & Garuda Pancasila
+    class SpecialItem {
+        constructor(type) {
+            this.type = type; // 'flag' or 'garuda'
+            this.x = V_WIDTH + 60;
+            this.y = GROUND_Y - 110 - Math.random() * 50;
+            this.initialY = this.y;
+            this.w = 50;
+            this.h = 50;
+            this.collected = false;
+            this.anim = 0;
+        }
+
+        update() {
+            this.x -= gameSpeed * 1.1;
+            this.anim += 0.1;
+            if (this.type === 'garuda') {
+                // Wave motion for flying bird
+                this.y = this.initialY + Math.sin(this.anim * 2.5) * 18;
+            }
+        }
+
+        draw(ctx, width, height) {
+            if (this.collected) return;
+
+            const scaleX = width / V_WIDTH;
+            const scaleY = height / V_HEIGHT;
+            const cx = (this.x + this.w / 2) * scaleX;
+            const cy = (this.y + this.h / 2) * scaleY;
+
+            ctx.save();
+
+            if (this.type === 'flag') {
+                // Aura Glow
+                ctx.beginPath();
+                ctx.arc(cx, cy, (28 + Math.sin(this.anim * 2) * 4) * scaleY, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(239, 68, 68, 0.35)';
+                ctx.fill();
+
+                // Gold Pole
+                ctx.strokeStyle = '#fbbf24';
+                ctx.lineWidth = 4 * scaleX;
+                ctx.beginPath();
+                ctx.moveTo(cx - 15 * scaleX, cy - 20 * scaleY);
+                ctx.lineTo(cx - 15 * scaleX, cy + 22 * scaleY);
+                ctx.stroke();
+
+                // Flag wave animation
+                const wave = Math.sin(this.anim * 3) * 4 * scaleY;
+
+                // Red Top Half
+                ctx.fillStyle = '#dc2626';
+                ctx.beginPath();
+                ctx.moveTo(cx - 13 * scaleX, cy - 18 * scaleY);
+                ctx.lineTo(cx + 18 * scaleX, cy - 18 * scaleY + wave);
+                ctx.lineTo(cx + 18 * scaleX, cy - 2 * scaleY + wave);
+                ctx.lineTo(cx - 13 * scaleX, cy - 2 * scaleY);
+                ctx.fill();
+
+                // White Bottom Half
+                ctx.fillStyle = '#f8fafc';
+                ctx.beginPath();
+                ctx.moveTo(cx - 13 * scaleX, cy - 2 * scaleY);
+                ctx.lineTo(cx + 18 * scaleX, cy - 2 * scaleY + wave);
+                ctx.lineTo(cx + 18 * scaleX, cy + 14 * scaleY + wave);
+                ctx.lineTo(cx - 13 * scaleX, cy + 14 * scaleY);
+                ctx.fill();
+
+                ctx.strokeStyle = '#cbd5e1';
+                ctx.lineWidth = 1 * scaleX;
+                ctx.stroke();
+
+            } else if (this.type === 'garuda') {
+                // Golden Pulsing Halo
+                const haloR = (36 + Math.sin(this.anim * 3) * 6) * scaleY;
+                const haloGrad = ctx.createRadialGradient(cx, cy, 5 * scaleY, cx, cy, haloR);
+                haloGrad.addColorStop(0, 'rgba(251, 191, 36, 0.9)');
+                haloGrad.addColorStop(0.5, 'rgba(245, 158, 11, 0.4)');
+                haloGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+                ctx.fillStyle = haloGrad;
+                ctx.beginPath();
+                ctx.arc(cx, cy, haloR, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Flapping Wing Cycle
+                const wingFlap = Math.sin(this.anim * 6) * 18 * scaleY;
+
+                ctx.save();
+                ctx.translate(cx, cy);
+
+                // Golden Tail Feathers
+                ctx.fillStyle = '#d97706';
+                ctx.beginPath();
+                ctx.moveTo(-5 * scaleX, 10 * scaleY);
+                ctx.lineTo(-24 * scaleX, 22 * scaleY);
+                ctx.lineTo(-12 * scaleX, 10 * scaleY);
+                ctx.lineTo(-28 * scaleX, 14 * scaleY);
+                ctx.lineTo(-12 * scaleX, 2 * scaleY);
+                ctx.fill();
+
+                // Left Wing
+                ctx.fillStyle = '#f59e0b';
+                ctx.beginPath();
+                ctx.moveTo(0, -2 * scaleY);
+                ctx.quadraticCurveTo(-15 * scaleX, -32 * scaleY + wingFlap, -34 * scaleX, -15 * scaleY + wingFlap * 0.8);
+                ctx.quadraticCurveTo(-20 * scaleX, 5 * scaleY + wingFlap * 0.5, 0, 5 * scaleY);
+                ctx.fill();
+
+                // Right Wing
+                ctx.fillStyle = '#fbbf24';
+                ctx.beginPath();
+                ctx.moveTo(0, -2 * scaleY);
+                ctx.quadraticCurveTo(15 * scaleX, -32 * scaleY + wingFlap, 34 * scaleX, -15 * scaleY + wingFlap * 0.8);
+                ctx.quadraticCurveTo(20 * scaleX, 5 * scaleY + wingFlap * 0.5, 0, 5 * scaleY);
+                ctx.fill();
+
+                // Bird Body
+                ctx.fillStyle = '#b45309';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 11 * scaleX, 17 * scaleY, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Eagle Head & Crown
+                ctx.fillStyle = '#fef08a';
+                ctx.beginPath();
+                ctx.arc(0, -14 * scaleY, 7 * scaleY, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Crown Crest
+                ctx.fillStyle = '#f59e0b';
+                ctx.beginPath();
+                ctx.moveTo(0, -21 * scaleY);
+                ctx.lineTo(-4 * scaleX, -28 * scaleY);
+                ctx.lineTo(0, -24 * scaleY);
+                ctx.lineTo(4 * scaleX, -28 * scaleY);
+                ctx.fill();
+
+                // Beak
+                ctx.fillStyle = '#d97706';
+                ctx.beginPath();
+                ctx.moveTo(0, -14 * scaleY);
+                ctx.lineTo(9 * scaleX, -12 * scaleY);
+                ctx.lineTo(0, -9 * scaleY);
+                ctx.fill();
+
+                // Pancasila Chest Shield
+                ctx.fillStyle = '#dc2626';
+                ctx.beginPath();
+                ctx.moveTo(-6 * scaleX, -6 * scaleY);
+                ctx.lineTo(6 * scaleX, -6 * scaleY);
+                ctx.lineTo(6 * scaleX, 2 * scaleY);
+                ctx.lineTo(0, 8 * scaleY);
+                ctx.lineTo(-6 * scaleX, 2 * scaleY);
+                ctx.fill();
+
+                ctx.fillStyle = '#f8fafc';
+                ctx.fillRect(-6 * scaleX, -2 * scaleY, 12 * scaleX, 4 * scaleY);
+
+                ctx.fillStyle = '#fbbf24';
+                ctx.font = `${8 * scaleY}px Arial`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('⭐', 0, 0);
+
+                ctx.restore();
+            }
+
+            ctx.restore();
+        }
+    }
+
+    let player;
+    let bg;
+    let obstacles = [];
+    let items = [];
+    let specialItems = [];
+    let flashScreenTimer = 0;
+    let garudaFlyingEffect = null;
+
+    function initGame() {
+        audio.init();
+        player = new Ninja();
+        bg = new Background();
+        obstacles = [];
+        items = [];
+        specialItems = [];
+        garudaFlyingEffect = null;
+        distance = 0;
+        gameSpeed = baseSpeed;
+        pancasilaCollected = 0;
+        currentPancasilaIndex = 0;
+        frameCount = 0;
+        flashScreenTimer = 0;
+
+        updateHeartsHUD(3);
+        resetPancasilaSlots();
+        distanceDisplay.innerText = "0";
+
+        modalOverlay.classList.add('hidden');
+        startModal.classList.add('hidden');
+        gameoverModal.classList.add('hidden');
+        victoryModal.classList.add('hidden');
+
+        gameState = 'PLAYING';
+
+        if (animationFrameId) cancelAnimationFrame(animationFrameId);
+        gameLoop();
+    }
+
+    function spawnEntities() {
+        gameSpeed = baseSpeed + Math.min(6, distance / 300);
+
+        const spawnInterval = Math.max(50, 110 - Math.floor(distance / 50));
+        if (frameCount % spawnInterval === 0 && Math.random() > 0.3) {
+            const types = ['rock', 'bat', 'bird'];
+            let chosenType;
+            if (distance < 150) chosenType = 'rock';
+            else if (distance < 300) chosenType = Math.random() > 0.5 ? 'rock' : 'bat';
+            else chosenType = types[Math.floor(Math.random() * types.length)];
+
+            obstacles.push(new Obstacle(chosenType));
+        }
+
+        // Spawn Pancasila Items
+        if (currentPancasilaIndex < 5 && items.length === 0 && frameCount % 220 === 0) {
+            items.push(new PancasilaItem(currentPancasilaIndex));
+        }
+
+        // Spawn Special Items (Bendera Merah Putih & Garuda Pancasila)
+        if (specialItems.length === 0) {
+            if (frameCount % 380 === 0) {
+                specialItems.push(new SpecialItem('flag'));
+            } else if (frameCount % 550 === 0) {
+                specialItems.push(new SpecialItem('garuda'));
+            }
+        }
+    }
+
+    function checkCollisions() {
+        const pHit = {
+            x: player.x + 8,
+            y: player.y + 4,
+            w: player.w - 16,
+            h: (player.isDucking ? player.h * 0.5 : player.h) - 8
+        };
+
+        for (let i = 0; i < obstacles.length; i++) {
+            let obs = obstacles[i];
+            const oHit = { x: obs.x, y: obs.y, w: obs.w, h: obs.h };
+
+            if (
+                pHit.x < oHit.x + oHit.w &&
+                pHit.x + pHit.w > oHit.x &&
+                pHit.y < oHit.y + oHit.h &&
+                pHit.y + pHit.h > oHit.y
+            ) {
+                player.hit();
+            }
+        }
+
+        // Check Pancasila Items Collision
+        for (let i = 0; i < items.length; i++) {
+            let item = items[i];
+            if (!item.collected) {
+                const iHit = { x: item.x, y: item.y, w: item.w, h: item.h };
+                if (
+                    pHit.x < iHit.x + iHit.w &&
+                    pHit.x + pHit.w > iHit.x &&
+                    pHit.y < iHit.y + iHit.h &&
+                    pHit.y + pHit.h > iHit.y
+                ) {
+                    item.collected = true;
+                    collectPancasila(item.dataIndex);
+                }
+            }
+        }
+
+        // Check Special Items Collision (Bendera Merah Putih & Garuda)
+        for (let i = 0; i < specialItems.length; i++) {
+            let sItem = specialItems[i];
+            if (!sItem.collected) {
+                const sHit = { x: sItem.x, y: sItem.y, w: sItem.w, h: sItem.h };
+                if (
+                    pHit.x < sHit.x + sHit.w &&
+                    pHit.x + pHit.w > sHit.x &&
+                    pHit.y < sHit.y + sHit.h &&
+                    pHit.y + pHit.h > sHit.y
+                ) {
+                    sItem.collected = true;
+                    audio.powerup();
+
+                    if (sItem.type === 'flag') {
+                        // Activate Shield
+                        player.shieldTimer = 300; // 5 Seconds
+                        showToast("🇮🇩 BENDERA MERAH PUTIH!", "Perisai Kebangsaan Aktif (5 Detik Kebal)!");
+                    } else if (sItem.type === 'garuda') {
+                        // Flying Garuda Sweep: Clear obstacles + bonus distance
+                        obstacles = [];
+                        distance += 50;
+                        flashScreenTimer = 20;
+                        garudaFlyingEffect = { x: -200, y: V_HEIGHT * 0.35, anim: 0, active: true };
+                        showToast("🦅 GARUDA PANCASILA!", "Burung Garuda Terbang Menyapu Semua Rintangan (+50m)!");
+                    }
+                }
+            }
+        }
+    }
+
+    function showToast(title, desc) {
+        toastTitle.innerText = title;
+        toastDesc.innerText = desc;
+        toastBanner.classList.remove('-translate-y-20', 'opacity-0');
+        toastBanner.classList.add('translate-y-0', 'opacity-100');
+
+        setTimeout(() => {
+            toastBanner.classList.remove('translate-y-0', 'opacity-100');
+            toastBanner.classList.add('-translate-y-20', 'opacity-0');
+        }, 2500);
+    }
+
+    function collectPancasila(index) {
+        audio.collect();
+        pancasilaCollected++;
+        currentPancasilaIndex++;
+
+        const slot = document.getElementById(`slot-${index}`);
+        if (slot) {
+            slot.classList.remove('grayscale', 'opacity-40');
+            slot.classList.add('glow-gold', 'scale-110', 'border-amber-400');
+        }
+
+        const data = pancasilaData[index];
+        showToast(`${data.emoji} ${data.title}`, data.desc);
+
+        if (pancasilaCollected >= 5) {
+            setTimeout(triggerVictory, 1000);
+        }
+    }
+
+    function updateHeartsHUD(lives) {
+        heartsContainer.innerHTML = '';
+        for (let i = 0; i < 3; i++) {
+            const heart = document.createElement('span');
+            heart.className = `text-2xl transition-all ${i < lives ? '' : 'grayscale opacity-30'}`;
+            heart.innerText = '❤️';
+            heartsContainer.appendChild(heart);
+        }
+    }
+
+    function resetPancasilaSlots() {
+        for (let i = 0; i < 5; i++) {
+            const slot = document.getElementById(`slot-${i}`);
+            if (slot) {
+                slot.className = "w-8 h-8 rounded-lg border border-slate-600 bg-slate-800/80 flex items-center justify-center text-lg grayscale opacity-40 transition-all";
+            }
+        }
+    }
+
+    function triggerGameOver() {
+        gameState = 'GAMEOVER';
+        goDistance.innerText = `${Math.floor(distance)}m`;
+        goPancasila.innerText = `${pancasilaCollected}/5`;
+
+        modalOverlay.classList.remove('hidden');
+        gameoverModal.classList.remove('hidden');
+    }
+
+    function triggerVictory() {
+        gameState = 'WIN';
+        audio.win();
+
+        modalOverlay.classList.remove('hidden');
+        victoryModal.classList.remove('hidden');
+    }
+
+    function drawFlyingGarudaSweep(ctx, width, height, effect) {
+        if (!effect || !effect.active) return;
+
+        const scaleX = width / V_WIDTH;
+        const scaleY = height / V_HEIGHT;
+
+        const gx = effect.x * scaleX;
+        const gy = effect.y * scaleY;
+        const flap = Math.sin(effect.anim * 8) * 35 * scaleY;
+
+        ctx.save();
+
+        // Golden Energy Beam Trail
+        const trailGrad = ctx.createLinearGradient(0, gy, gx, gy);
+        trailGrad.addColorStop(0, 'rgba(251, 191, 36, 0)');
+        trailGrad.addColorStop(1, 'rgba(251, 191, 36, 0.45)');
+        ctx.fillStyle = trailGrad;
+        ctx.fillRect(0, gy - 60 * scaleY, gx, 120 * scaleY);
+
+        ctx.translate(gx, gy);
+
+        // Giant Golden Aura
+        const auraGrad = ctx.createRadialGradient(0, 0, 10 * scaleY, 0, 0, 120 * scaleY);
+        auraGrad.addColorStop(0, 'rgba(254, 240, 138, 0.9)');
+        auraGrad.addColorStop(0.5, 'rgba(245, 158, 11, 0.5)');
+        auraGrad.addColorStop(1, 'rgba(245, 158, 11, 0)');
+        ctx.fillStyle = auraGrad;
+        ctx.beginPath();
+        ctx.arc(0, 0, 120 * scaleY, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Giant Wings (Flapping)
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.moveTo(0, -10 * scaleY);
+        ctx.quadraticCurveTo(-40 * scaleX, -100 * scaleY + flap, -110 * scaleX, -40 * scaleY + flap * 0.8);
+        ctx.quadraticCurveTo(-60 * scaleX, 10 * scaleY, 0, 10 * scaleY);
+        ctx.fill();
+
+        ctx.beginPath();
+        ctx.moveTo(0, 10 * scaleY);
+        ctx.quadraticCurveTo(-40 * scaleX, 100 * scaleY - flap, -110 * scaleX, 40 * scaleY - flap * 0.8);
+        ctx.quadraticCurveTo(-60 * scaleX, -10 * scaleY, 0, -10 * scaleY);
+        ctx.fill();
+
+        // Giant Tail Feathers
+        ctx.fillStyle = '#d97706';
+        ctx.beginPath();
+        ctx.moveTo(-20 * scaleX, 0);
+        ctx.lineTo(-90 * scaleX, -35 * scaleY);
+        ctx.lineTo(-60 * scaleX, 0);
+        ctx.lineTo(-90 * scaleX, 35 * scaleY);
+        ctx.fill();
+
+        // Body & Eagle Head
+        ctx.fillStyle = '#b45309';
+        ctx.beginPath();
+        ctx.ellipse(0, 0, 30 * scaleX, 45 * scaleY, -Math.PI / 6, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#fef08a';
+        ctx.beginPath();
+        ctx.arc(25 * scaleX, -15 * scaleY, 20 * scaleY, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Golden Crest
+        ctx.fillStyle = '#f59e0b';
+        ctx.beginPath();
+        ctx.moveTo(25 * scaleX, -35 * scaleY);
+        ctx.lineTo(15 * scaleX, -50 * scaleY);
+        ctx.lineTo(25 * scaleX, -42 * scaleY);
+        ctx.lineTo(35 * scaleX, -50 * scaleY);
+        ctx.fill();
+
+        // Sharp Eagle Beak
+        ctx.fillStyle = '#d97706';
+        ctx.beginPath();
+        ctx.moveTo(35 * scaleX, -20 * scaleY);
+        ctx.lineTo(60 * scaleX, -10 * scaleY);
+        ctx.lineTo(35 * scaleX, -5 * scaleY);
+        ctx.fill();
+
+        // Eye
+        ctx.fillStyle = '#0f172a';
+        ctx.beginPath();
+        ctx.arc(32 * scaleX, -18 * scaleY, 4 * scaleY, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Pancasila Shield Emblem
+        ctx.fillStyle = '#dc2626';
+        ctx.beginPath();
+        ctx.moveTo(-12 * scaleX, -15 * scaleY);
+        ctx.lineTo(12 * scaleX, -15 * scaleY);
+        ctx.lineTo(12 * scaleX, 10 * scaleY);
+        ctx.lineTo(0, 22 * scaleY);
+        ctx.lineTo(-12 * scaleX, 10 * scaleY);
+        ctx.fill();
+
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(-12 * scaleX, -5 * scaleY, 24 * scaleX, 10 * scaleY);
+
+        ctx.fillStyle = '#fbbf24';
+        ctx.font = `bold ${16 * scaleY}px Arial`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('⭐', 0, 0);
+
+        ctx.restore();
+    }
+
+    function gameLoop() {
+        if (gameState !== 'PLAYING') return;
+
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        frameCount++;
+        distance += gameSpeed / 60;
+        distanceDisplay.innerText = Math.floor(distance);
+
+        bg.update();
+        player.update();
+        spawnEntities();
+
+        obstacles.forEach(o => o.update());
+        items.forEach(i => i.update());
+        specialItems.forEach(s => s.update());
+
+        obstacles = obstacles.filter(o => o.x + o.w > -100);
+        items = items.filter(i => i.x + i.w > -100 && !i.collected);
+        specialItems = specialItems.filter(s => s.x + s.w > -100 && !s.collected);
+
+        checkCollisions();
+
+        bg.draw(ctx, canvas.width, canvas.height);
+        obstacles.forEach(o => o.draw(ctx, canvas.width, canvas.height));
+        items.forEach(i => i.draw(ctx, canvas.width, canvas.height));
+        specialItems.forEach(s => s.draw(ctx, canvas.width, canvas.height));
+        player.draw(ctx, canvas.width, canvas.height);
+
+        // Render Flying Garuda Sweep Effect
+        if (garudaFlyingEffect && garudaFlyingEffect.active) {
+            garudaFlyingEffect.x += 18;
+            garudaFlyingEffect.anim += 0.2;
+            drawFlyingGarudaSweep(ctx, canvas.width, canvas.height, garudaFlyingEffect);
+            if (garudaFlyingEffect.x > V_WIDTH + 200) {
+                garudaFlyingEffect.active = false;
+            }
+        }
+
+        // Flash Screen effect when Garuda Power activates
+        if (flashScreenTimer > 0) {
+            flashScreenTimer--;
+            ctx.fillStyle = `rgba(251, 191, 36, ${flashScreenTimer / 30})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+        }
+
+        animationFrameId = requestAnimationFrame(gameLoop);
+    }
+
+    // Controls Event Handlers
+    function handleKeyDown(e) {
+        if (gameState !== 'PLAYING') return;
+        if (e.code === 'Space' || e.code === 'ArrowUp') {
+            e.preventDefault();
+            player.jump();
+        } else if (e.code === 'ArrowDown') {
+            e.preventDefault();
+            player.duck(true);
+        }
+    }
+
+    function handleKeyUp(e) {
+        if (gameState !== 'PLAYING') return;
+        if (e.code === 'ArrowDown') {
+            e.preventDefault();
+            player.duck(false);
+        }
+    }
+
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+
+    const btnJump = document.getElementById('btn-jump');
+    const btnDuck = document.getElementById('btn-duck');
+
+    btnJump.addEventListener('touchstart', (e) => { e.preventDefault(); if (gameState === 'PLAYING') player.jump(); });
+    btnJump.addEventListener('mousedown', (e) => { e.preventDefault(); if (gameState === 'PLAYING') player.jump(); });
+
+    btnDuck.addEventListener('touchstart', (e) => { e.preventDefault(); if (gameState === 'PLAYING') player.duck(true); });
+    btnDuck.addEventListener('touchend', (e) => { e.preventDefault(); if (gameState === 'PLAYING') player.duck(false); });
+    btnDuck.addEventListener('mousedown', (e) => { e.preventDefault(); if (gameState === 'PLAYING') player.duck(true); });
+    btnDuck.addEventListener('mouseup', (e) => { e.preventDefault(); if (gameState === 'PLAYING') player.duck(false); });
+
+    soundBtn.addEventListener('click', () => {
+        audio.init();
+        audio.muted = !audio.muted;
+        soundIcon.innerText = audio.muted ? '🔇' : '🔊';
+    });
+
+    document.getElementById('start-btn').addEventListener('click', initGame);
+    document.getElementById('restart-btn').addEventListener('click', initGame);
+    document.getElementById('win-restart-btn').addEventListener('click', initGame);
+
+    // Initial background draw
+    bg = new Background();
+    bg.draw(ctx, canvas.width, canvas.height);
+
+</script>
+</body>
+</html>
